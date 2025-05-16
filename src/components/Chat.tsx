@@ -1,11 +1,12 @@
 "use client";
 
 import { Message } from "ai";
-import { FC, FormEvent, useRef, useState } from "react";
+import { FC, FormEvent, useRef, useState, useEffect } from "react";
 import MessageBubble from "./ui/chat/MessageBubble";
 import PromptTemplateSelector from "./ui/chat/PromptTemplateSelector";
 import ModelSelector from "./ui/chat/ModelSelector";
 import PersonaSelector from "./ui/chat/PersonaSelector";
+import SpeechControls from "./ui/chat/SpeechControls";
 import { PromptType } from "@/lib/prompts/promptManager";
 import { AVAILABLE_MODELS } from "@/lib/config/models";
 import { AVAILABLE_PERSONAS } from "@/lib/config/personas";
@@ -23,10 +24,47 @@ const Chat: FC = () => {
   const [showTemplates, setShowTemplates] = useState(false);
   const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0].id);
   const [selectedPersona, setSelectedPersona] = useState(AVAILABLE_PERSONAS[0].id);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const speechSynthesis = useRef<SpeechSynthesis | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      speechSynthesis.current = window.speechSynthesis;
+    }
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleSpeechInput = (text: string) => {
+    setInput(text);
+  };
+
+  const speakText = (text: string) => {
+    if (!speechSynthesis.current || !isSpeaking) return;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    // Get the current persona's voice settings
+    const persona = AVAILABLE_PERSONAS.find(p => p.id === selectedPersona);
+    if (persona) {
+      // Adjust voice settings based on persona
+      if (persona.id === 'snoop-dogg') {
+        utterance.rate = 0.9; // Slightly slower
+        utterance.pitch = 0.9; // Slightly lower pitch
+      } else if (persona.id === 'paris-hilton') {
+        utterance.rate = 1.1; // Slightly faster
+        utterance.pitch = 1.1; // Slightly higher pitch
+      }
+    }
+
+    speechSynthesis.current.speak(utterance);
   };
 
   const handlePersonaChange = (personaId: string) => {
@@ -92,18 +130,29 @@ const Chat: FC = () => {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      
+      // Speak the assistant's response if speech is enabled
+      if (isSpeaking) {
+        speakText(data.content);
+      }
     } catch (error) {
       console.error("Chat Error:", error);
+      const errorMessage = error instanceof Error 
+        ? `Error: ${error.message}${error.message.includes('quota') ? '\n\nPlease check your API billing details or try again later.' : ''}`
+        : "Sorry, there was an error processing your request.";
+      
       setMessages((prev) => [
         ...prev,
         {
           role: "system",
-          content: error instanceof Error 
-            ? `Error: ${error.message}${error.message.includes('quota') ? '\n\nPlease check your API billing details or try again later.' : ''}`
-            : "Sorry, there was an error processing your request.",
+          content: errorMessage,
           id: `error-${Date.now()}`,
         },
       ]);
+
+      if (isSpeaking) {
+        speakText(errorMessage);
+      }
     } finally {
       setIsLoading(false);
       scrollToBottom();
@@ -197,7 +246,14 @@ const Chat: FC = () => {
         )}
 
         <div className="flex flex-col gap-2">
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center">
+            <SpeechControls
+              onSpeechInput={handleSpeechInput}
+              isListening={isListening}
+              onToggleListening={() => setIsListening(!isListening)}
+              isSpeaking={isSpeaking}
+              onToggleSpeaking={() => setIsSpeaking(!isSpeaking)}
+            />
             <button
               onClick={() => setShowTemplates(!showTemplates)}
               className="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90"
