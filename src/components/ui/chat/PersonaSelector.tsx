@@ -1,21 +1,24 @@
 import { FC } from 'react';
-import { AVAILABLE_PERSONAS } from '@/lib/config/personas';
+import { Persona, AVAILABLE_PERSONAS } from '@/lib/config/personas';
 
 interface PersonaSelectorProps {
-  selectedPersona: string;
-  onPersonaChange: (personaId: string) => void;
+  selectedPersona: Persona;
+  onSelect: (persona: Persona) => void;
 }
 
 const PersonaSelector: FC<PersonaSelectorProps> = ({
   selectedPersona,
-  onPersonaChange,
+  onSelect,
 }) => {
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm font-medium">Select Persona</label>
       <select
-        value={selectedPersona}
-        onChange={(e) => onPersonaChange(e.target.value)}
+        value={selectedPersona.id}
+        onChange={(e) => {
+          const persona = AVAILABLE_PERSONAS.find(p => p.id === e.target.value);
+          if (persona) onSelect(persona);
+        }}
         className="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary bg-background"
       >
         {AVAILABLE_PERSONAS.map((persona) => (
@@ -25,7 +28,7 @@ const PersonaSelector: FC<PersonaSelectorProps> = ({
         ))}
       </select>
       <p className="text-sm text-muted-foreground">
-        {AVAILABLE_PERSONAS.find((p) => p.id === selectedPersona)?.description}
+        {selectedPersona.description}
       </p>
     </div>
   );
