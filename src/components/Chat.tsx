@@ -12,13 +12,7 @@ import { AVAILABLE_MODELS } from "@/lib/config/models";
 import { AVAILABLE_PERSONAS } from "@/lib/config/personas";
 
 const Chat: FC = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "system",
-      content: AVAILABLE_PERSONAS[0].systemPrompt,
-      id: "system-1",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -26,6 +20,7 @@ const Chat: FC = () => {
   const [selectedPersona, setSelectedPersona] = useState(AVAILABLE_PERSONAS[0].id);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [jobDescription, setJobDescription] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const speechSynthesis = useRef<SpeechSynthesis | null>(null);
 
@@ -34,6 +29,30 @@ const Chat: FC = () => {
       speechSynthesis.current = window.speechSynthesis;
     }
   }, []);
+
+  useEffect(() => {
+    // Update system message when persona or job description changes
+    const persona = AVAILABLE_PERSONAS.find(p => p.id === selectedPersona);
+    if (persona) {
+      const jobDescriptionText = jobDescription
+        ? `You are specifically helping with this job description: ${jobDescription}`
+        : "";
+      
+      const systemPrompt = persona.systemPrompt.replace('{jobDescription}', jobDescriptionText);
+      
+      setMessages(prev => {
+        const filteredMessages = prev.filter(msg => msg.role !== "system");
+        return [
+          {
+            role: "system",
+            content: systemPrompt,
+            id: `system-${Date.now()}`,
+          },
+          ...filteredMessages
+        ];
+      });
+    }
+  }, [selectedPersona, jobDescription]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -106,6 +125,7 @@ const Chat: FC = () => {
           messages: [...messages, userMessage],
           modelId: selectedModel,
           personaId: selectedPersona,
+          jobDescription,
         }),
       });
 
@@ -236,6 +256,16 @@ const Chat: FC = () => {
           <PersonaSelector
             selectedPersona={selectedPersona}
             onPersonaChange={handlePersonaChange}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium">Job Description</label>
+          <textarea
+            value={jobDescription}
+            onChange={(e) => setJobDescription(e.target.value)}
+            placeholder="Paste the job description here..."
+            className="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px] resize-y"
           />
         </div>
 

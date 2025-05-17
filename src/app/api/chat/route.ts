@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     console.log('[CHAT API] Received request');
     
     const body = await req.json();
-    const { messages, promptOptions, modelId = 'gpt-3.5-turbo', personaId = 'default' } = body;
+    const { messages, promptOptions, modelId = 'gpt-3.5-turbo', personaId = 'default', jobDescription = '' } = body;
 
     if (!messages && !promptOptions) {
       console.error('[CHAT API] Invalid request: missing messages or promptOptions');
@@ -68,8 +68,14 @@ export async function POST(req: Request) {
       const persona = AVAILABLE_PERSONAS.find(p => p.id === personaId);
       if (persona) {
         // Replace the system message with the persona's system prompt
+        const jobDescriptionText = jobDescription
+          ? `You are specifically helping with this job description: ${jobDescription}`
+          : "";
+        
         finalMessages = messages.map(msg => 
-          msg.role === 'system' ? { ...msg, content: persona.systemPrompt } : msg
+          msg.role === 'system' 
+            ? { ...msg, content: persona.systemPrompt.replace('{jobDescription}', jobDescriptionText) }
+            : msg
         );
       } else {
         finalMessages = messages;
